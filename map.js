@@ -21,8 +21,6 @@ const map = new mapboxgl.Map({
 
 let svg;
 
-// ---- helper functions (Step 5.2 + 5.3) ----
-
 function formatTime(minutes) {
   if (minutes < 0) return '';
   const date = new Date(0, 0, 0, 0, minutes);
@@ -78,6 +76,10 @@ function getCoords(station) {
   const { x, y } = map.project(point);
   return { cx: x, cy: y };
 }
+
+// will be set once data is loaded
+let radiusScale;
+let stationFlow;
 
 map.on('load', async () => {
   svg = d3.select('#map').select('svg');
@@ -160,22 +162,31 @@ map.on('load', async () => {
 
   stations = computeStationTraffic(stations, trips);
 
-  const radiusScale = d3
+  radiusScale = d3
     .scaleSqrt()
     .domain([0, d3.max(stations, (d) => d.totalTraffic)])
     .range([0, 25]);
+
+  stationFlow = d3
+    .scaleQuantize()
+    .domain([0, 1])
+    .range([0, 0.5, 1]);
 
   const circles = svg
     .selectAll('circle')
     .data(stations, (d) => d.short_name)
     .enter()
     .append('circle')
-    .attr('fill', 'steelblue')
     .attr('stroke', 'white')
     .attr('stroke-width', 1)
     .attr('fill-opacity', 0.6)
     .attr('pointer-events', 'auto')
     .attr('r', (d) => radiusScale(d.totalTraffic))
+    .style('--departure-ratio', (d) => {
+      const ratio =
+        d.totalTraffic > 0 ? d.departures / d.totalTraffic : 0.5;
+      return stationFlow(ratio);
+    })
     .each(function (d) {
       d3
         .select(this)
@@ -215,6 +226,11 @@ map.on('load', async () => {
     circles
       .data(filteredStations, (d) => d.short_name)
       .attr('r', (d) => radiusScale(d.totalTraffic))
+      .style('--departure-ratio', (d) => {
+        const ratio =
+          d.totalTraffic > 0 ? d.departures / d.totalTraffic : 0.5;
+        return stationFlow(ratio);
+      })
       .each(function (d) {
         d3
           .select(this)
