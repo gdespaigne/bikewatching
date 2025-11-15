@@ -1,10 +1,14 @@
 import mapboxgl from 'https://cdn.jsdelivr.net/npm/mapbox-gl@2.15.0/+esm';
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm';
 
-mapboxgl.accessToken = 'pk.eyJ1IjoiZ2Rlc3BhaWduZS11Y3NkIiwiYSI6ImNtaHpzbzB6bDB0MDQyam9pejdmYWVlN2cifQ.3kCscqIr4QQa4P6cYKncgg';
+mapboxgl.accessToken =
+  'pk.eyJ1IjoiZ2Rlc3BhaWduZS11Y3NkIiwiYSI6ImNtaHpzbzB6bDB0MDQyam9pejdmYWVlN2cifQ.3kCscqIr4QQa4P6cYKncgg';
 
 const INPUT_BLUEBIKES_JSON_URL =
   'https://dsc106.com/labs/lab07/data/bluebikes-stations.json';
+
+const INPUT_BLUEBIKES_TRAFFIC_URL =
+  'https://dsc106.com/labs/lab07/data/bluebikes-traffic-2024-03.csv';
 
 const map = new mapboxgl.Map({
   container: 'map',
@@ -72,9 +76,8 @@ map.on('load', async () => {
 
   let stations = [];
   try {
-    const jsonData = await d3.json(INPUT_BLUEBIKES_JSON_URL);
-    const rawStations = jsonData.data.stations || [];
-
+    const stationsJson = await d3.json(INPUT_BLUEBIKES_JSON_URL);
+    const rawStations = stationsJson.data.stations || [];
     stations = rawStations
       .map((s) => {
         const lon = parseFloat(
@@ -86,25 +89,66 @@ map.on('load', async () => {
         return { ...s, lon, lat };
       })
       .filter((s) => Number.isFinite(s.lon) && Number.isFinite(s.lat));
-
-    console.log('Stations loaded (valid coords):', stations.length);
-    if (stations[0]) {
-      console.log('First station example:', stations[0]);
-    }
   } catch (err) {
     console.error('Error loading stations JSON:', err);
   }
+
+  let trips = [];
+  try {
+    trips = await d3.csv(INPUT_BLUEBIKES_TRAFFIC_URL);
+  } catch (err) {
+    console.error('Error loading traffic CSV:', err);
+  }
+
+  const departures = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.start_station_id
+  );
+
+  const arrivals = d3.rollup(
+    trips,
+    (v) => v.length,
+    (d) => d.end_station_id
+  );
+
+  stations = stations.map((station) => {
+    const id = station.short_name;
+    const arr = arrivals.get(id) ?? 0;
+    const dep = departures.get(id) ?? 0;
+    const total = arr + dep;
+    return {
+      ...station,
+      arrivals: arr,
+      departures: dep,
+      totalTraffic: total,
+    };
+  });
+
+  const radiusScale = d3
+    .scaleSqrt()
+    .domain([0, d3.max(stations, (d) => d.totalTraffic)])
+    .range([0, 25]);
 
   const circles = svg
     .selectAll('circle')
     .data(stations)
     .enter()
     .append('circle')
-    .attr('r', 5)
     .attr('fill', 'steelblue')
     .attr('stroke', 'white')
     .attr('stroke-width', 1)
-    .attr('opacity', 0.7);
+    .attr('fill-opacity', 0.6)
+    .attr('pointer-events', 'auto')
+    .attr('r', (d) => radiusScale(d.totalTraffic))
+    .each(function (d) {
+      d3
+        .select(this)
+        .append('title')
+        .text(
+          `${d.totalTraffic} trips (${d.departures} departures, ${d.arrivals} arrivals)`
+        );
+    });
 
   function updatePositions() {
     circles
