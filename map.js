@@ -15,3 +15,21 @@ const map = new mapboxgl.Map({
     maxZoom: 18
   });
   
+  map.on('load', () => {
+    map.addSource('bikeParking', {
+      type: 'geojson',
+      data: 'https://raw.githubusercontent.com/dsc106/lab07/main/bike_parking.geojson'
+    });
+  
+    // Temporary: add default circles to verify data loads (you’ll customize later)
+    map.addLayer({
+      id: 'bikeParking-circles',
+      type: 'circle',
+      source: 'bikeParking',
+      paint: {
+        'circle-radius': 4,
+        'circle-color': '#007cbf'
+      }
+    });
+  });
+  
