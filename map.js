@@ -8,7 +8,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZ2Rlc3BhaWduZS11Y3NkIiwiYSI6ImNtaHpzbzB6bDB0M
 
 const map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/gdespaigne-ucsd/cmhzvcwqe003w01sq8je27bj1',
+    style: 'mapbox://styles/gdespaigne-ucsd/cmhzvyt3a006i01r65lizawq7',
     center: [-71.09415, 42.36027],
     zoom: 12,
     minZoom: 5,
